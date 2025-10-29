@@ -96,31 +96,35 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
     var all_objects_count = spheresCount + boxesCount + torusCount;
     var result = vec4f(vec3f(1.0), d);
 
+    var min_dist = inf;
     for (var i = 0; i < all_objects_count; i = i + 1)
-    {
-      // get shape and shape order (shapesinfo)
-      // shapesinfo has the following format:
-      // x: shape type (0: sphere, 1: box, 2: torus)
-      // y: shape index
-      // order matters for the operations, they're sorted on the CPU side
+      {
+        // get shape and shape order (shapesinfo)
+        // shapesinfo has the following format:
+        // x: shape type (0: sphere, 1: box, 2: torus)
+        // y: shape index
+        // order matters for the operations, they're sorted on the CPU side
 
-      // call transform_p and the sdf for the shape
-      // call op function with the shape operation
-      var sdf: f32;
-      if (shapesinfob[i].x == 0) {
-        var new_p = transform_p(p, shapesb[i].op.zw);
-        sdf = sdf_sphere(new_p, shapesb[i].radius, shapesb[i].rotation);
-        result = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
+        // call transform_p and the sdf for the shape
+        // call op function with the shape operation
+        var sdf: f32;
+        if (shapesinfob[i].x == 0) {
+          var new_p = transform_p(p, shapesb[i].op.zw);
+          sdf = sdf_sphere(new_p, shapesb[i].radius, shapesb[i].rotation);
+          result = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
+          if (result.w < min_dist) {
+            min_dist = result.w;
+          }
+        }
+
+        // op format:
+        // x: operation (0: union, 1: subtraction, 2: intersection)
+        // y: k value
+        // z: repeat mode (0: normal, 1: repeat)
+        // w: repeat offset
       }
 
-      // op format:
-      // x: operation (0: union, 1: subtraction, 2: intersection)
-      // y: k value
-      // z: repeat mode (0: normal, 1: repeat)
-      // w: repeat offset
-    }
-
-    return result;
+    return vec4f(result.xyz, min_dist);
 }
 
 fn march(ro: vec3f, rd: vec3f) -> march_output
@@ -135,16 +139,16 @@ fn march(ro: vec3f, rd: vec3f) -> march_output
   for (var i = 0; i < max_marching_steps; i = i + 1)
   {
       // raymarch algorithm
-
-
       // call scene function and march
       // scene verifies all objects in scene
-      // var result = scene();
-
+      var p = ro + depth;
+      var result = scene(p);
+      depth = result[3];
+      
       // if the depth is greater than the max distance or 
       // the distance is less than the epsilon, break
-      var remove_this = 0.0;
-      if (depth > remove_this || depth < EPSILON) {
+      if (depth > result.w || depth < EPSILON) {
+        color = vec3f(result[0], result[1], result[2]);
         break;
       }
   }
@@ -154,7 +158,14 @@ fn march(ro: vec3f, rd: vec3f) -> march_output
 
 fn get_normal(p: vec3f) -> vec3f
 {
-  return vec3f(0.0);
+  var EPSILON = uniforms[23];
+  var r = vec4f(vec3f(0.0), 1.0);
+  var quat = vec4f(vec3f(0.0), 1.0);
+  return normalize(vec3(
+          sdf_sphere(vec3(p.x + EPSILON, p.y, p.z), r, quat) - sdf_sphere(vec3(p.x - EPSILON, p.y, p.z), r, quat),
+          sdf_sphere(vec3(p.x, p.y + EPSILON, p.z), r, quat) - sdf_sphere(vec3(p.x, p.y - EPSILON, p.z), r, quat),
+          sdf_sphere(vec3(p.x, p.y, p.z + EPSILON), r, quat) - sdf_sphere(vec3(p.x, p.y, p.z - EPSILON), r, quat)
+        ));
 }
 
 // https://iquilezles.org/articles/rmshadows/
@@ -215,7 +226,8 @@ fn get_light(current: vec3f, obj_color: vec3f, rd: vec3f) -> vec3f
   // - ambient occlusion (optional)
   // - ambient light
   // - object color
-  return ambient;
+  var light_direction = normalize(light_position - current);
+  return saturate(dot(normal, light_direction)) * vec3f(1.0, 0.0, 0.0);
 }
 
 fn set_camera(ro: vec3f, ta: vec3f, cr: f32) -> mat3x3<f32>
@@ -273,10 +285,10 @@ fn render(@builtin(global_invocation_id) id : vec3u)
   var march_out = march(ro, rd);
 
   // move ray based on the depth
-
+  var new_ray_origin = ro + rd * march_out.depth;
 
   // get light
-  var color = vec3f(1.0);
+  var color = get_light(new_ray_origin, march_out.color, rd);
   
   // display the result
   color = linear_to_gamma(color);
