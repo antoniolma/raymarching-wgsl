@@ -570,12 +570,15 @@ function writeBuffers()
         switch (shapes[i].name)
         {
             case "Sphere":
+                console.log(shapes[i]);
                 shapesInfo.push([0, i, shapes[i].op[0], 0]);
                 break;
             case "Box":
+                // console.log(shapes[i]);
                 shapesInfo.push([1, i, shapes[i].op[0], 0]);
                 break;
             case "Torus":
+                console.log(shapes[i]);
                 shapesInfo.push([2, i, shapes[i].op[0], 0]);
                 break;
         }
@@ -583,6 +586,8 @@ function writeBuffers()
 
     // sort the shapes by the operation
     shapesInfo.sort((a, b) => a[2] - b[2]);
+    console.log(shapesInfo);
+    // console.log(shapesInfo[0]);
     writeBuffer(shapesInfoBuffer, shapesInfoBufferSizes, shapesInfo);
 }
 

@@ -106,6 +106,12 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
 
       // call transform_p and the sdf for the shape
       // call op function with the shape operation
+      var sdf: f32;
+      if (shapesinfob[i].x == 0) {
+        var new_p = transform_p(p, shapesb[i].op.zw);
+        sdf = sdf_sphere(new_p, shapesb[i].radius, shapesb[i].rotation);
+        result = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
+      }
 
       // op format:
       // x: operation (0: union, 1: subtraction, 2: intersection)
@@ -120,7 +126,7 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
 fn march(ro: vec3f, rd: vec3f) -> march_output
 {
   var max_marching_steps = i32(uniforms[5]);
-  var EPSILON = uniforms[23];
+  var EPSILON = uniforms[23];  // Distancia Minima
 
   var depth = 0.0;
   var color = vec3f(0.0);
@@ -129,8 +135,18 @@ fn march(ro: vec3f, rd: vec3f) -> march_output
   for (var i = 0; i < max_marching_steps; i = i + 1)
   {
       // raymarch algorithm
+
+
       // call scene function and march
-      // if the depth is greater than the max distance or the distance is less than the epsilon, break
+      // scene verifies all objects in scene
+      // var result = scene();
+
+      // if the depth is greater than the max distance or 
+      // the distance is less than the epsilon, break
+      var remove_this = 0.0;
+      if (depth > remove_this || depth < EPSILON) {
+        break;
+      }
   }
 
   return march_output(color, depth, false);
@@ -254,7 +270,11 @@ fn render(@builtin(global_invocation_id) id : vec3u)
   var rd = camera * normalize(vec3(uv, 1.0));
 
   // call march function and get the color/depth
+  var march_out = march(ro, rd);
+
   // move ray based on the depth
+
+
   // get light
   var color = vec3f(1.0);
   
