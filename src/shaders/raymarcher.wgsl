@@ -96,7 +96,8 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
     var all_objects_count = spheresCount + boxesCount + torusCount;
     var result = vec4f(vec3f(1.0), d);
 
-    var min_dist = inf;
+    var min_dist = 1000000.0;
+    var color_min_dist = vec3f(0.0);
     for (var i = 0; i < all_objects_count; i = i + 1)
       {
         // get shape and shape order (shapesinfo)
@@ -108,14 +109,15 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
         // call transform_p and the sdf for the shape
         // call op function with the shape operation
         var sdf: f32;
-        if (shapesinfob[i].x == 0) {
+        // if (shapesinfob[i].x == 0) {
           var new_p = transform_p(p, shapesb[i].op.zw);
-          sdf = sdf_sphere(new_p, shapesb[i].radius, shapesb[i].rotation);
+          sdf = sdf_sphere(new_p - shapesb[i].transform.xyz, shapesb[i].radius, shapesb[i].rotation);
           result = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
           if (result.w < min_dist) {
             min_dist = result.w;
+            color_min_dist = result.xyz;
           }
-        }
+        // }
 
         // op format:
         // x: operation (0: union, 1: subtraction, 2: intersection)
@@ -124,7 +126,7 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
         // w: repeat offset
       }
 
-    return vec4f(result.xyz, min_dist);
+    return vec4f(color_min_dist, min_dist);
 }
 
 fn march(ro: vec3f, rd: vec3f) -> march_output
@@ -141,13 +143,16 @@ fn march(ro: vec3f, rd: vec3f) -> march_output
       // raymarch algorithm
       // call scene function and march
       // scene verifies all objects in scene
-      var p = ro + depth;
+
+      // ANTONIOOOOOOO creio q alguma coisa aqui esteja errada
+      // var p = ro + depth; // cor do fundo ta certa, objeto n aparece
+      var p = ro + rd* depth; // cor do fundo errada, esfera aparece
       var result = scene(p);
       depth = result[3];
       
       // if the depth is greater than the max distance or 
       // the distance is less than the epsilon, break
-      if (depth > result.w || depth < EPSILON) {
+      if (depth < EPSILON) { // ANTONIOOOOO mudei aqui tbm mas n sei
         color = vec3f(result[0], result[1], result[2]);
         break;
       }
@@ -227,7 +232,7 @@ fn get_light(current: vec3f, obj_color: vec3f, rd: vec3f) -> vec3f
   // - ambient light
   // - object color
   var light_direction = normalize(light_position - current);
-  return saturate(dot(normal, light_direction)) * vec3f(1.0, 0.0, 0.0);
+  return saturate(dot(normal, light_direction)) * obj_color;
 }
 
 fn set_camera(ro: vec3f, ta: vec3f, cr: f32) -> mat3x3<f32>
