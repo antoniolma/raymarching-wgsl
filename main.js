@@ -570,15 +570,15 @@ function writeBuffers()
         switch (shapes[i].name)
         {
             case "Sphere":
-                console.log(shapes[i]);
+                // console.log(shapes[i]);
                 shapesInfo.push([0, i, shapes[i].op[0], 0]);
                 break;
             case "Box":
-                // console.log(shapes[i]);
+                console.log(shapes[i]);
                 shapesInfo.push([1, i, shapes[i].op[0], 0]);
                 break;
             case "Torus":
-                // console.log(shapes[i]);
+                console.log(shapes[i]);
                 shapesInfo.push([2, i, shapes[i].op[0], 0]);
                 break;
         }

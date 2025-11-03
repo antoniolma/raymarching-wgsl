@@ -109,20 +109,19 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
 
         // call transform_p and the sdf for the shape
         // call op function with the shape operation
-        var sdf: f32;
-        var dist = 0.0;
         var new_p = transform_p(p, shapesb[i].op.zw);
+        var sdf: f32;
         if (shapesinfob[i].x == 0) { // Esfera
           sdf = sdf_sphere(new_p - shapesb[i].transform.xyz, shapesb[i].radius, shapesb[i].quat);
-          var op_out = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
-          if (op_out.w < min_dist) {
-            min_dist = op_out.w;
-            color_min_dist = op_out.xyz;
-          }
         } else if (shapesinfob[i].x == 1) { // Caixa
-
+          sdf = sdf_round_box(new_p - shapesb[i].transform.xyz, shapesb[i].radius.xyz, shapesb[i].radius.w, shapesb[i].quat);
         } else if (shapesinfob[i].x == 2) { // Torus
-
+          sdf = sdf_torus(new_p - shapesb[i].transform.xyz, shapesb[i].radius.xy, shapesb[i].quat);
+        }
+        var op_out = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
+        if (op_out.w < min_dist) {
+          min_dist = op_out.w;
+          color_min_dist = op_out.xyz;
         }
 
         // op format:
