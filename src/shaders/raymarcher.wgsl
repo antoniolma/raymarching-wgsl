@@ -87,6 +87,7 @@ fn transform_p(p: vec3f, option: vec2f) -> vec3f
 
 fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
 {
+    // render Floor
     var d = mix(100.0, p.y, uniforms[17]);
 
     var spheresCount = i32(uniforms[2]);
@@ -96,8 +97,8 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
     var all_objects_count = spheresCount + boxesCount + torusCount;
     var result = vec4f(vec3f(1.0), d);
 
-    var min_dist = 1000000.0;
-    var color_min_dist = vec3f(0.0);
+    var min_dist = result.w;
+    var color_min_dist = result.xyz;
     for (var i = 0; i < all_objects_count; i = i + 1)
       {
         // get shape and shape order (shapesinfo)
@@ -109,15 +110,20 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
         // call transform_p and the sdf for the shape
         // call op function with the shape operation
         var sdf: f32;
-        // if (shapesinfob[i].x == 0) {
-          var new_p = transform_p(p, shapesb[i].op.zw);
-          sdf = sdf_sphere(new_p - shapesb[i].transform.xyz, shapesb[i].radius, shapesb[i].rotation);
-          result = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
-          if (result.w < min_dist) {
-            min_dist = result.w;
-            color_min_dist = result.xyz;
+        var dist = 0.0;
+        var new_p = transform_p(p, shapesb[i].op.zw);
+        if (shapesinfob[i].x == 0) { // Esfera
+          sdf = sdf_sphere(new_p - shapesb[i].transform.xyz, shapesb[i].radius, shapesb[i].quat);
+          var op_out = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
+          if (op_out.w < min_dist) {
+            min_dist = op_out.w;
+            color_min_dist = op_out.xyz;
           }
-        // }
+        } else if (shapesinfob[i].x == 1) { // Caixa
+
+        } else if (shapesinfob[i].x == 2) { // Torus
+
+        }
 
         // op format:
         // x: operation (0: union, 1: subtraction, 2: intersection)
@@ -137,25 +143,26 @@ fn march(ro: vec3f, rd: vec3f) -> march_output
   var depth = 0.0;
   var color = vec3f(0.0);
   var march_step = uniforms[22];
+
+  // var p = ro;
   
   for (var i = 0; i < max_marching_steps; i = i + 1)
   {
+      var current = ro + rd*depth;
       // raymarch algorithm
       // call scene function and march
       // scene verifies all objects in scene
-
-      // ANTONIOOOOOOO creio q alguma coisa aqui esteja errada
-      // var p = ro + depth; // cor do fundo ta certa, objeto n aparece
-      var p = ro + rd* depth; // cor do fundo errada, esfera aparece
-      var result = scene(p);
-      depth = result[3];
+      var result = scene(current);
+      depth += result.w * march_step;
       
       // if the depth is greater than the max distance or 
       // the distance is less than the epsilon, break
-      if (depth < EPSILON) { // ANTONIOOOOO mudei aqui tbm mas n sei
-        color = vec3f(result[0], result[1], result[2]);
+      color = vec3f(result.xyz);
+      if (depth > MAX_DIST || depth < EPSILON) {
         break;
       }
+
+      // p += rd*depth;
   }
 
   return march_output(color, depth, false);
@@ -164,19 +171,29 @@ fn march(ro: vec3f, rd: vec3f) -> march_output
 fn get_normal(p: vec3f) -> vec3f
 {
   var EPSILON = uniforms[23];
-  var r = vec4f(vec3f(0.0), 1.0);
-  var quat = vec4f(vec3f(0.0), 1.0);
-  return normalize(vec3(
-          sdf_sphere(vec3(p.x + EPSILON, p.y, p.z), r, quat) - sdf_sphere(vec3(p.x - EPSILON, p.y, p.z), r, quat),
-          sdf_sphere(vec3(p.x, p.y + EPSILON, p.z), r, quat) - sdf_sphere(vec3(p.x, p.y - EPSILON, p.z), r, quat),
-          sdf_sphere(vec3(p.x, p.y, p.z + EPSILON), r, quat) - sdf_sphere(vec3(p.x, p.y, p.z - EPSILON), r, quat)
-        ));
+  var e = vec3f(1.0, -1.0, 0.0) * 0.5773;
+  return normalize(
+    e.xyy * scene(p + e.xyy * EPSILON).w +
+    e.yyx * scene(p + e.yyx * EPSILON).w +
+    e.yxy * scene(p + e.yxy * EPSILON).w +
+    e.xxx * scene(p + e.xxx * EPSILON).w
+  );
 }
 
 // https://iquilezles.org/articles/rmshadows/
 fn get_soft_shadow(ro: vec3f, rd: vec3f, tmin: f32, tmax: f32, k: f32) -> f32
 {
-  return 0.0;
+  var res = 1.0;
+  var t = tmin;
+  for( var i=0; i<256 && t<tmax; i++ )
+  {
+      var h = scene(ro + t*rd);
+      res = min( res, h.w/(k*t) );
+      t += clamp(h.w, 0.005, 0.50);
+      if( res<-1.0 || t>tmax ) {break;}
+  }
+  res = max(res,-1.0);
+  return 0.25*(1.0+res)*(1.0+res)*(2.0-res);
 }
 
 fn get_AO(current: vec3f, normal: vec3f) -> f32
@@ -231,8 +248,13 @@ fn get_light(current: vec3f, obj_color: vec3f, rd: vec3f) -> vec3f
   // - ambient occlusion (optional)
   // - ambient light
   // - object color
+  var obj_color_sun = obj_color * sun_color;
   var light_direction = normalize(light_position - current);
-  return saturate(dot(normal, light_direction)) * obj_color;
+  var soft_shadow = get_soft_shadow(current, light_direction, uniforms[24], uniforms[25], uniforms[21]);
+  return saturate(dot(normal, light_direction)) * obj_color_sun * soft_shadow + ambient * get_AO(current, normal) * obj_color;
+  // return saturate(dot(normal, light_direction)) * obj_color;
+  // return soft_shadow * obj_color;
+  // return light_direction;
 }
 
 fn set_camera(ro: vec3f, ta: vec3f, cr: f32) -> mat3x3<f32>

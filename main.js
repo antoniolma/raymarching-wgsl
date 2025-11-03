@@ -25,7 +25,7 @@ let performanceStats = { ms: 0, fps: 0 };
 const sizes = { f32: 4, u32: 4, i32: 4, vec2: 8, vec4: 16 };
 const uniforms = {
     time: 0, // 0
-    rez: 768, // 1
+    rez: 1028, // 1
     sphereCount: spheres.length, // 2
     boxCount: boxes.length, // 3
     torusCount: toruses.length, // 4
@@ -578,7 +578,7 @@ function writeBuffers()
                 shapesInfo.push([1, i, shapes[i].op[0], 0]);
                 break;
             case "Torus":
-                console.log(shapes[i]);
+                // console.log(shapes[i]);
                 shapesInfo.push([2, i, shapes[i].op[0], 0]);
                 break;
         }

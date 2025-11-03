@@ -7,6 +7,32 @@ async function getAvailableScene(index, scenesList)
     return await sceneFunction();
 }
 
+async function SkyAndHS()
+{
+	return {
+		spheres: [
+			new Shape("Sphere", [0, 1, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0.001, 0.0, 0.0], [1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]),
+		],
+		boxes: [
+		],
+		toruses: [
+		],
+		backgroundColor: [0.0784313725490196, 0.38823529411764707, 1],
+		maxMarchingSteps: 100,
+		showFloor: 1,
+		mandelbulb: 0,
+		weirdScene: 0,
+		farPlane: 700,
+		softShadowK: 0.001,
+		marchingStep: 1,
+		outlinePostProcess: 0,
+		outlineWidth: 0.05,
+		sunColor: [0.98, 1, 0.9],
+		backgroundColor2: [0.7, 0.75, 0.85],
+		backgroundColor3: [0.418, 0.394, 0.372],
+	};
+}
+
 async function Main()
 {
 	return {
@@ -63,31 +89,7 @@ async function Sphere()
     };
 }
 
-async function SkyAndHS()
-{
-	return {
-		spheres: [
-			new Shape("Sphere", [0, 1, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0.001, 0.0, 0.0], [1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]),
-		],
-		boxes: [
-		],
-		toruses: [
-		],
-		backgroundColor: [0.0784313725490196, 0.38823529411764707, 1],
-		maxMarchingSteps: 100,
-		showFloor: 1,
-		mandelbulb: 0,
-		weirdScene: 0,
-		farPlane: 700,
-		softShadowK: 0.001,
-		marchingStep: 1,
-		outlinePostProcess: 0,
-		outlineWidth: 0.05,
-		sunColor: [0.98, 1, 0.9],
-		backgroundColor2: [0.7, 0.75, 0.85],
-		backgroundColor3: [0.418, 0.394, 0.372],
-	};
-}
+
 
 async function Multiple()
 {
