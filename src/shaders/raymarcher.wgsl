@@ -114,9 +114,9 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
         if (shapesinfob[i].x == 0) { // Esfera
           sdf = sdf_sphere(new_p - shapesb[i].transform.xyz, shapesb[i].radius, shapesb[i].quat);
         } else if (shapesinfob[i].x == 1) { // Caixa
-          sdf = sdf_round_box(new_p - shapesb[i].transform.xyz, shapesb[i].radius.xyz, shapesb[i].radius.w, shapesb[i].quat);
+          sdf = sdf_round_box(new_p - shapesb[i].transform.xyz, shapesb[i].radius.xyz, shapesb[i].radius.w, shapesb[i].rotation);
         } else if (shapesinfob[i].x == 2) { // Torus
-          sdf = sdf_torus(new_p - shapesb[i].transform.xyz, shapesb[i].radius.xy, shapesb[i].quat);
+          sdf = sdf_torus(new_p - shapesb[i].transform.xyz, shapesb[i].radius.xy, shapesb[i].rotation);
         }
         var op_out = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
         if (op_out.w < min_dist) {
