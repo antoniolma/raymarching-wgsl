@@ -32,9 +32,29 @@ struct march_output {
   outline : bool,
 };
 
+// fn smin(a: f32, b: f32, k: f32) -> f32
+// {
+//   var h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+//   return mix(b, a, h) - k * h * (1.0 - h);
+// }
+
+// fn minWithColor(obj1: vec4f, obj2: vec4f, k: f32) -> vec4f
+// {
+//   var x = smin(obj1.z, obj2.z, k);
+//   var y = smin(obj1.y, obj2.y, k);
+//   var z = smin(obj1.z, obj2.z, k);
+//   var t = smin(obj1.w, obj2.w, k);
+//   // if (obj2.x > obj1.x) {
+//   //   return vec4f(obj2.xyz, t);
+//   // }
+//   // return vec4(obj2.xyz, t);
+//   return vec4f(x, y, z, t);
+// }
+
 fn op_smooth_union(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 {
   var k_eps = max(k, 0.0001);
+  // return minWithColor(vec4f(col1, d1), vec4f(col2, d2), k_eps);
   return vec4f(col1, d1);
 }
 
@@ -112,11 +132,11 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
         var new_p = transform_p(p, shapesb[i].op.zw);
         var sdf: f32;
         if (shapesinfob[i].x == 0) { // Esfera
-          sdf = sdf_sphere(new_p - shapesb[i].transform.xyz, shapesb[i].radius, shapesb[i].quat);
+          sdf = sdf_sphere(new_p - shapesb[i].transform_animated.xyz, shapesb[i].radius, shapesb[i].quat);
         } else if (shapesinfob[i].x == 1) { // Caixa
-          sdf = sdf_round_box(new_p - shapesb[i].transform.xyz, shapesb[i].radius.xyz, shapesb[i].radius.w, shapesb[i].rotation);
+          sdf = sdf_round_box(new_p - shapesb[i].transform_animated.xyz, shapesb[i].radius.xyz, shapesb[i].radius.w, shapesb[i].quat);
         } else if (shapesinfob[i].x == 2) { // Torus
-          sdf = sdf_torus(new_p - shapesb[i].transform.xyz, shapesb[i].radius.xy, shapesb[i].rotation);
+          sdf = sdf_torus(new_p - shapesb[i].transform_animated.xyz, shapesb[i].radius.xy, shapesb[i].quat);
         }
         var op_out = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
         if (op_out.w < min_dist) {
@@ -286,6 +306,14 @@ fn preprocess(@builtin(global_invocation_id) id : vec3u)
 
   // optional: performance boost
   // Do all the transformations here and store them in the buffer since this is called only once per object and not per pixel
+
+  // Transform
+  var speed = shapesb[id.x].animate_transform.w;
+  shapesb[id.x].transform_animated = shapesb[id.x].transform + shapesb[id.x].animate_transform * sin(speed * time);
+
+  // Rotate
+  speed = shapesb[id.x].animate_rotation.w;
+  shapesb[id.x].quat = shapesb[id.x].rotation + shapesb[id.x].animate_rotation * sin(speed * time);
 }
 
 @compute @workgroup_size(THREAD_COUNT, THREAD_COUNT, 1)
