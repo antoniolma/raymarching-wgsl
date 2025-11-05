@@ -313,7 +313,7 @@ fn preprocess(@builtin(global_invocation_id) id : vec3u)
 
   // Rotate
   speed = shapesb[id.x].animate_rotation.w;
-  shapesb[id.x].quat = shapesb[id.x].rotation + shapesb[id.x].animate_rotation * sin(speed * time);
+  shapesb[id.x].quat = qmul(quaternion_from_euler(shapesb[id.x].animate_rotation.xyz * sin(speed * time)), quaternion_from_euler(shapesb[id.x].rotation.xyz));
 }
 
 @compute @workgroup_size(THREAD_COUNT, THREAD_COUNT, 1)
