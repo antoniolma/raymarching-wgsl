@@ -32,42 +32,96 @@ struct march_output {
   outline : bool,
 };
 
-// fn smin(a: f32, b: f32, k: f32) -> f32
-// {
-//   var h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-//   return mix(b, a, h) - k * h * (1.0 - h);
-// }
+fn smin(a: f32, b: f32, k: f32) -> f32
+{
+  var h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
+}
 
-// fn minWithColor(obj1: vec4f, obj2: vec4f, k: f32) -> vec4f
-// {
-//   var x = smin(obj1.z, obj2.z, k);
-//   var y = smin(obj1.y, obj2.y, k);
-//   var z = smin(obj1.z, obj2.z, k);
-//   var t = smin(obj1.w, obj2.w, k);
-//   // if (obj2.x > obj1.x) {
-//   //   return vec4f(obj2.xyz, t);
-//   // }
-//   // return vec4(obj2.xyz, t);
-//   return vec4f(x, y, z, t);
-// }
+fn minWithColor(obj1: vec4f, obj2: vec4f, k: f32) -> vec4f
+{
+  var t = smin(obj1.w, obj2.w, k);
+  // if (abs(obj1.w) < uniforms[23]) {
+  //   return vec4f(obj2.xyz, t);
+  // }
+  // if (abs(obj2.w) < uniforms[23]) {
+  //   return vec4f(obj1.xyz, t);
+  // }
+
+  if (obj2.w < obj1.w) {
+    return vec4f(obj2.xyz, t);
+  }
+  return vec4(obj1.xyz, t);
+  // return vec4f(0.1, 0.8, 0.8, t);
+}
+
+fn maxWithColor(obj1: vec4f, obj2: vec4f, k: f32) -> vec4f
+{
+  // var h = max(k-abs(-obj1.w-obj2.w),0.0);
+  // var t = max(-obj1.w, obj2.w) + h*h*0.25/k;
+  var t = -smin(-obj1.w, -obj2.w, k);
+  if (obj2.w > obj1.w) {
+    return vec4f(obj2.xyz, t);
+    // return obj2;
+  }
+  return vec4(obj1.xyz, t);
+  // return obj1;
+}
 
 fn op_smooth_union(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 {
   var k_eps = max(k, 0.0001);
+  
+  if (d2 == 0.0) {return vec4f(col1, d1);}
   // return minWithColor(vec4f(col1, d1), vec4f(col2, d2), k_eps);
-  return vec4f(col1, d1);
+
+  var h = clamp(0.5 + 0.5 * (d2 - d1) / k_eps, 0.0, 1.0);
+  var d = mix(d2, d1, h) - k_eps * h * (1.0 - h);
+  var col = mix(col2, col1, h);
+  return vec4f(col, d);
+
+  // var h = max(k_eps-abs(d1-d2),0.0);
+  // var d = min(d1, d2) - h*h*0.25/k;
+  // var col = mix(col2, col1, h);
+  // return vec4f(col, d);
 }
 
 fn op_smooth_subtraction(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 {
+  // var k_eps = max(k, 0.0001);
+  // return maxWithColor(vec4f(col1, -d1), vec4f(col2, d2), k_eps);
+
   var k_eps = max(k, 0.0001);
-  return vec4f(col1, d1);
+  var h = clamp(0.5 - 0.5 * (d2 + d1) / k_eps, 0.0, 1.0);
+  var d = mix(d2, -d1, h) - k_eps * h * (1.0 - h);
+  var col = mix(col2, col1, h);
+  return vec4f(col, d);
+
+  // var h = clamp( 0.5 - 0.5*(d2+d1)/k_eps, 0.0, 1.0 );
+  // var d = mix( d1, -d2, h ) + k_eps*h*(1.0-h);
+  // return vec4f(col1, d);
+
+  // var k_eps *= 4.0;
+  // var h = max(k_eps-abs(-d1-d2),0.0);
+  // var d = max(-d1, d2) + h*h*0.25/k_eps;
+  // let col = mix(col2, col1, h);
+  // return vec4f(col, d);
 }
 
 fn op_smooth_intersection(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 {
+  // var k_eps = max(k, 0.0001);
+  // return maxWithColor(vec4f(col1, d1), vec4f(col2, d2), k_eps);
   var k_eps = max(k, 0.0001);
-  return vec4f(col1, d1);
+
+  let h = clamp(0.5 + 0.5 * (d2 - d1) / k_eps, 0.0, 1.0);
+
+  let d = mix(d2, d1, h) + k_eps * h * (1.0 - h);
+
+  let col = mix(col2, col1, h);
+
+  return vec4f(col, d);
+  // return vec4f(col1, d1);
 }
 
 fn op(op: f32, d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
@@ -119,6 +173,7 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
 
     var min_dist = result.w;
     var color_min_dist = result.xyz;
+    var final_idx = 0;
     for (var i = 0; i < all_objects_count; i = i + 1)
       {
         // get shape and shape order (shapesinfo)
@@ -129,17 +184,49 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
 
         // call transform_p and the sdf for the shape
         // call op function with the shape operation
-        var new_p = transform_p(p, shapesb[i].op.zw);
+        var idx = i32(shapesinfob[i].y);
+        var new_p = transform_p(p, shapesb[idx].op.zw);
         var sdf: f32;
         if (shapesinfob[i].x == 0) { // Esfera
-          sdf = sdf_sphere(new_p - shapesb[i].transform_animated.xyz, shapesb[i].radius, shapesb[i].quat);
+          sdf = sdf_sphere(new_p - shapesb[idx].transform_animated.xyz, shapesb[idx].radius, shapesb[idx].quat);
         } else if (shapesinfob[i].x == 1) { // Caixa
-          sdf = sdf_round_box(new_p - shapesb[i].transform_animated.xyz, shapesb[i].radius.xyz, shapesb[i].radius.w, shapesb[i].quat);
+          sdf = sdf_round_box(new_p - shapesb[idx].transform_animated.xyz, shapesb[idx].radius.xyz, shapesb[idx].radius.w, shapesb[idx].quat);
         } else if (shapesinfob[i].x == 2) { // Torus
-          sdf = sdf_torus(new_p - shapesb[i].transform_animated.xyz, shapesb[i].radius.xy, shapesb[i].quat);
+          sdf = sdf_torus(new_p - shapesb[idx].transform_animated.xyz, shapesb[idx].radius.xy, shapesb[idx].quat);
         }
-        var op_out = op(shapesb[i].op.x, sdf, 0.0, shapesb[i].color.xyz, vec3f(0.0), shapesb[i].op.y);
+
+        var other_sdf = 0.0;
+        var other_color = vec3f(0.0);
+        var min_dist_sdfs = 100000000.0;
+        var outline_thickness = uniforms[28];
+        var op_out: vec4f;
+
+        for (var j = 0; j < all_objects_count; j += 1) {
+          var jdx = i32(shapesinfob[j].y);
+          if (jdx == idx) {continue;}
+          var sdf_2: f32;
+          var other_p = transform_p(p, shapesb[jdx].op.zw);
+          if (shapesinfob[j].x == 0) {
+            sdf_2 = sdf_sphere(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius, shapesb[jdx].quat);
+          } else if (shapesinfob[j].x == 1) {
+            // sdf_2 = sdf_sphere(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius, shapesb[jdx].quat);
+            sdf_2 = sdf_round_box(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius.xyz, shapesb[jdx].radius.w, shapesb[jdx].quat);
+          } else if (shapesinfob[j].x == 2) {
+            // sdf_2 = sdf_sphere(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius, shapesb[jdx].quat);
+            sdf_2 = sdf_torus(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius.xy, shapesb[jdx].quat);
+          }
+
+          if (abs(sdf_2 - sdf) < min_dist_sdfs) {
+            min_dist_sdfs = abs(sdf_2 - sdf);
+            other_sdf = sdf_2;
+            other_color = shapesb[jdx].color.xyz;
+          }
+        }
+
+        op_out = op(shapesb[idx].op.x, sdf, other_sdf, shapesb[idx].color.xyz, other_color, shapesb[idx].op.y);
+        // op_out = op(shapesb[idx].op.x, sdf, 0.0, shapesb[idx].color.xyz, vec3f(0.0), shapesb[idx].op.y);
         if (op_out.w < min_dist) {
+          final_idx = idx;
           min_dist = op_out.w;
           color_min_dist = op_out.xyz;
         }
@@ -152,6 +239,7 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
       }
 
     return vec4f(color_min_dist, min_dist);
+    // return op(shapesb[final_idx].op.x, min_dist, result.w, color_min_dist, result.xyz, shapesb[final_idx].op.y);
 }
 
 fn march(ro: vec3f, rd: vec3f) -> march_output
@@ -163,8 +251,12 @@ fn march(ro: vec3f, rd: vec3f) -> march_output
   var color = vec3f(0.0);
   var march_step = uniforms[22];
 
-  // var p = ro;
-  
+  var result = vec4f(0.0);
+
+  var hasOutline = bool(uniforms[26]);
+  var outline_thickness = uniforms[27];
+
+  var renderOutline = false;
   for (var i = 0; i < max_marching_steps; i = i + 1)
   {
       var current = ro + rd*depth;
@@ -177,14 +269,19 @@ fn march(ro: vec3f, rd: vec3f) -> march_output
       // if the depth is greater than the max distance or 
       // the distance is less than the epsilon, break
       color = vec3f(result.xyz);
+      
+      if (hasOutline && result.w < outline_thickness && result.w > 0) {
+        renderOutline = true;
+      }
+  
       if (depth > MAX_DIST || depth < EPSILON) {
         break;
+      } else if (result.w < EPSILON) {
+        return march_output(color, depth, false);
       }
-
-      // p += rd*depth;
   }
-
-  return march_output(color, depth, false);
+  
+  return march_output(color, depth, renderOutline);
 }
 
 fn get_normal(p: vec3f) -> vec3f
@@ -309,11 +406,18 @@ fn preprocess(@builtin(global_invocation_id) id : vec3u)
 
   // Transform
   var speed = shapesb[id.x].animate_transform.w;
-  shapesb[id.x].transform_animated = shapesb[id.x].transform + shapesb[id.x].animate_transform * sin(speed * time);
+  shapesb[id.x].transform_animated.x = shapesb[id.x].transform.x + shapesb[id.x].animate_transform.x * sin(speed * time);
+  shapesb[id.x].transform_animated.y = shapesb[id.x].transform.y + shapesb[id.x].animate_transform.y * cos(speed * time);
+  shapesb[id.x].transform_animated.z = shapesb[id.x].transform.z + shapesb[id.x].animate_transform.z * cos(speed * time);
 
   // Rotate
   speed = shapesb[id.x].animate_rotation.w;
-  shapesb[id.x].quat = qmul(quaternion_from_euler(shapesb[id.x].animate_rotation.xyz * sin(speed * time)), quaternion_from_euler(shapesb[id.x].rotation.xyz));
+  var rot_quat = quaternion_from_euler(shapesb[id.x].rotation.xyz);
+  var anim_quat = quaternion_from_euler(vec3f(shapesb[id.x].animate_rotation.x * sin(speed * time), 
+                                        shapesb[id.x].animate_rotation.y * cos(speed * time),
+                                        shapesb[id.x].animate_rotation.z * cos(speed * time)));
+  
+  shapesb[id.x].quat = qmul(anim_quat, rot_quat);
 }
 
 @compute @workgroup_size(THREAD_COUNT, THREAD_COUNT, 1)
@@ -341,9 +445,14 @@ fn render(@builtin(global_invocation_id) id : vec3u)
   // move ray based on the depth
   var new_ray_origin = ro + rd * march_out.depth;
 
-  // get light
-  var color = get_light(new_ray_origin, march_out.color, rd);
-  
+  var color = vec3f(0.0);
+  if (march_out.outline) {
+    color = int_to_rgb(i32(uniforms[28]));
+  } else {
+    // get light
+    color = get_light(new_ray_origin, march_out.color, rd);
+  }
+
   // display the result
   color = linear_to_gamma(color);
   fb[mapfb(id.xy, uniforms[1])] = vec4(color, 1.0);
