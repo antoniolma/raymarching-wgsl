@@ -62,62 +62,35 @@ fn maxWithColor(obj1: vec4f, obj2: vec4f, k: f32) -> vec4f
   var t = -smin(-obj1.w, -obj2.w, k);
   if (obj2.w > obj1.w) {
     return vec4f(obj2.xyz, t);
-    // return obj2;
   }
   return vec4(obj1.xyz, t);
-  // return obj1;
 }
 
 fn op_smooth_union(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 {
   var k_eps = max(k, 0.0001);
-  
-  if (d2 == 0.0) {return vec4f(col1, d1);}
-  // return minWithColor(vec4f(col1, d1), vec4f(col2, d2), k_eps);
-
   var h = clamp(0.5 + 0.5 * (d2 - d1) / k_eps, 0.0, 1.0);
   var d = mix(d2, d1, h) - k_eps * h * (1.0 - h);
   var col = mix(col2, col1, h);
   return vec4f(col, d);
-
-  // var h = max(k_eps-abs(d1-d2),0.0);
-  // var d = min(d1, d2) - h*h*0.25/k;
-  // var col = mix(col2, col1, h);
-  // return vec4f(col, d);
 }
 
 fn op_smooth_subtraction(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 {
   var k_eps = max(k, 0.0001);
-  // return maxWithColor(vec4f(col1, -d1), vec4f(col2, d2), k_eps);
-
-  // var k_eps = max(k, 0.0001);
   var h = clamp(0.5 - 0.5 * (d2 + d1) / k_eps, 0.0, 1.0);
   var d = mix(d2, -d1, h) + k_eps * h * (1.0 - h);
   var col = mix(col2, col1, h);
   return vec4f(col, d);
-
-  // var h = clamp( 0.5 - 0.5*(d2+d1)/k_eps, 0.0, 1.0 );
-  // var d = mix( d1, -d2, h ) + k_eps*h*(1.0-h);
-  // return vec4f(col1, d);
-
-  // var k_eps *= 4.0;
-  // var h = max(k_eps-abs(-d1-d2),0.0);
-  // var d = max(-d1, d2) + h*h*0.25/k_eps;
-  // let col = mix(col2, col1, h);
-  // return vec4f(col, d);
 }
 
 fn op_smooth_intersection(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 {
-  // var k_eps = max(k, 0.0001);
-  // return maxWithColor(vec4f(col1, d1), vec4f(col2, d2), k_eps);
   var k_eps = max(k, 0.0001);
   let h = clamp(0.5 - 0.5 * (d2 - d1) / k_eps, 0.0, 1.0);
   let d = mix(d2, d1, h) + k_eps * h * (1.0 - h);
   let col = mix(col2, col1, h);
   return vec4f(col, d);
-  // return vec4f(col1, d1);
 }
 
 fn op(op: f32, d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
@@ -191,45 +164,14 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
           sdf = sdf_torus(new_p - shapesb[idx].transform_animated.xyz, shapesb[idx].radius.xy, shapesb[idx].quat);
         }
 
-        var other_sdf = 0.0;
-        var other_color = vec3f(0.0);
-        var min_dist_sdfs = 100000000.0;
-        var outline_thickness = uniforms[28];
-        var op_out: vec4f;
-
-        for (var j = 0; j < all_objects_count; j += 1) {
-          var jdx = i32(shapesinfob[j].y);
-          if (jdx == idx) {continue;}
-          var sdf_2: f32;
-          var other_p = transform_p(p, shapesb[jdx].op.zw);
-          if (shapesinfob[j].x == 0) {
-            sdf_2 = sdf_sphere(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius, shapesb[jdx].quat);
-          } else if (shapesinfob[j].x == 1) {
-            // sdf_2 = sdf_sphere(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius, shapesb[jdx].quat);
-            sdf_2 = sdf_round_box(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius.xyz, shapesb[jdx].radius.w, shapesb[jdx].quat);
-          } else if (shapesinfob[j].x == 2) {
-            // sdf_2 = sdf_sphere(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius, shapesb[jdx].quat);
-            sdf_2 = sdf_torus(other_p - shapesb[jdx].transform_animated.xyz, shapesb[jdx].radius.xy, shapesb[jdx].quat);
-          }
-
-          if (abs(sdf_2 - sdf) < min_dist_sdfs) {
-            min_dist_sdfs = abs(sdf_2 - sdf);
-            other_sdf = sdf_2;
-            other_color = shapesb[jdx].color.xyz;
-          }
-        }
-
-        if (abs(result.w - sdf) < min_dist_sdfs) {
-          other_sdf = result.w;
-          other_color = result.xyz;
-        }
-
-        op_out = op(shapesb[idx].op.x, sdf, other_sdf, shapesb[idx].color.xyz, other_color, shapesb[idx].op.y);
-        if (op_out.w < min_dist) {
-          final_idx = idx;
-          min_dist = op_out.w;
-          color_min_dist = op_out.xyz;
-        }
+        // op_out = op(shapesb[idx].op.x, sdf, other_sdf, shapesb[idx].color.xyz, other_color, shapesb[idx].op.y);
+        result = op(shapesb[idx].op.x, result.w, sdf, result.xyz, shapesb[idx].color.xyz, shapesb[idx].op.y);
+        // if (op_out.w < min_dist) {
+        //   final_idx = idx;
+        //   min_dist = op_out.w;
+        //   color_min_dist = op_out.xyz;
+        //   result = vec4f(color_min_dist, min_dist);
+        // }
 
         // op format:
         // x: operation (0: union, 1: subtraction, 2: intersection)
@@ -238,7 +180,7 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
         // w: repeat offset
       }
 
-    return vec4f(color_min_dist, min_dist);
+    return result;
     // return op(shapesb[final_idx].op.x, min_dist, result.w, color_min_dist, result.xyz, shapesb[final_idx].op.y);
 }
 
