@@ -2,7 +2,7 @@ fn sdf_round_box(p: vec3f, b: vec3f, r: f32, quat: vec4f) -> f32
 {
   // var quat_converted = quaternion_from_euler(quat.xyz);
   var p_rotated = rotate_vector(p, quat);
-  var q = abs(p_rotated) - b;
+  var q = abs(p_rotated) - b ;
   return length(max(q,vec3f(0.0))) + min(max(q.x,max(q.y,q.z)),0.0) - r;
 }
 

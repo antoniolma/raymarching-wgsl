@@ -88,12 +88,12 @@ fn op_smooth_union(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 
 fn op_smooth_subtraction(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 {
-  // var k_eps = max(k, 0.0001);
+  var k_eps = max(k, 0.0001);
   // return maxWithColor(vec4f(col1, -d1), vec4f(col2, d2), k_eps);
 
-  var k_eps = max(k, 0.0001);
+  // var k_eps = max(k, 0.0001);
   var h = clamp(0.5 - 0.5 * (d2 + d1) / k_eps, 0.0, 1.0);
-  var d = mix(d2, -d1, h) - k_eps * h * (1.0 - h);
+  var d = mix(d2, -d1, h) + k_eps * h * (1.0 - h);
   var col = mix(col2, col1, h);
   return vec4f(col, d);
 
@@ -113,13 +113,9 @@ fn op_smooth_intersection(d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) ->
   // var k_eps = max(k, 0.0001);
   // return maxWithColor(vec4f(col1, d1), vec4f(col2, d2), k_eps);
   var k_eps = max(k, 0.0001);
-
-  let h = clamp(0.5 + 0.5 * (d2 - d1) / k_eps, 0.0, 1.0);
-
+  let h = clamp(0.5 - 0.5 * (d2 - d1) / k_eps, 0.0, 1.0);
   let d = mix(d2, d1, h) + k_eps * h * (1.0 - h);
-
   let col = mix(col2, col1, h);
-
   return vec4f(col, d);
   // return vec4f(col1, d1);
 }
@@ -144,7 +140,7 @@ fn op(op: f32, d1: f32, d2: f32, col1: vec3f, col2: vec3f, k: f32) -> vec4f
 
 fn repeat(p: vec3f, offset: vec3f) -> vec3f
 {
-  return vec3f(0.0);
+  return modc(p + 0.5 * offset, offset) - offset * 0.5;
 }
 
 fn transform_p(p: vec3f, option: vec2f) -> vec3f
@@ -223,8 +219,12 @@ fn scene(p: vec3f) -> vec4f // xyz = color, w = distance
           }
         }
 
+        if (abs(result.w - sdf) < min_dist_sdfs) {
+          other_sdf = result.w;
+          other_color = result.xyz;
+        }
+
         op_out = op(shapesb[idx].op.x, sdf, other_sdf, shapesb[idx].color.xyz, other_color, shapesb[idx].op.y);
-        // op_out = op(shapesb[idx].op.x, sdf, 0.0, shapesb[idx].color.xyz, vec3f(0.0), shapesb[idx].op.y);
         if (op_out.w < min_dist) {
           final_idx = idx;
           min_dist = op_out.w;
